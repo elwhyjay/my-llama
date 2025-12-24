@@ -19,7 +19,16 @@ class SiLU(nn.Module):
         return x * torch.sigmoid(x)
 
 class SwiGLU(nn.Module):
-    def __init__(self, dim_in, dim_out,scale_to_hidden_dim,ffn_dim_multiplier:Optional[float]=None):
+    def __init__(self, dim_in: int, dim_out: int, scale_to_hidden_dim: int, ffn_dim_multiplier: Optional[float] = None):
+        """
+        SwiGLU implemnt. 
+        SwiGLU (x) = SiLU(W1*x) * (W2*x)
+        Args:
+            dim_in (int): Input dimension.
+            dim_out (int): Output dimension.
+            scale_to_hidden_dim (int): Scale to hidden dimension.
+            ffn_dim_multiplier (Optional[float], optional): Multiplier for feedforward dimension. Defaults to None.        
+        """
         super().__init__()
         dim_out = int(2*dim_out/3)
         if ffn_dim_multiplier is not None:
