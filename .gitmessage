@@ -1,3 +1,8 @@
+# Commit Message Template
+# commit message should be simple and clear.
+# First line is summary, followed by detailed description.
+
+
 # <type>(<area>): <what changed in one line>
 
 # Why:
