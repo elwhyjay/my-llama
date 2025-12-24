@@ -26,3 +26,47 @@ def precompute_freqs_cis(
     freqs = torch.einsum("i,j->ij", t, freqs)
     freqs_cis = torch.polar(torch.ones_like(freqs), freqs)
     return freqs_cis
+
+
+def reshape_for_broadcasting(freqs_cis: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+    """Reshape the precomputed frequencies for broadcasting.
+
+    Args:
+        freqs_cis (torch.Tensor): Precomputed frequencies tensor of shape (seq_len, dim // 2, 2).
+        x (torch.Tensor): Input tensor of shape (..., seq_len, dim).
+
+    Returns:
+        torch.Tensor: Reshaped frequencies tensor for broadcasting.
+    """
+    x_dim = x.ndim
+    assert 1 < x_dim , "Input tensor must have at least 2 dimensions"
+    assert freqs_cis.shape == (x.shape[1], x.shape[-1]) , "Frequency tensor shape mismatch"
+    shape = [
+        d if i == 1 or i == x_dim - 1 else 1
+        for i, d in enumerate(x.shape)
+    ]   
+    freqs_cis = freqs_cis.view(*shape)
+    return freqs_cis
+
+def rotary_emb(
+    xq: torch.Tensor,
+    xk: torch.Tensor,
+    freqs_cis: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Apply rotary embeddings to query and key tensors.
+
+    Args:
+        xq (torch.Tensor): Query tensor of shape (..., seq_len, dim).
+        xk (torch.Tensor): Key tensor of shape (..., seq_len, dim).
+        freqs_cis (torch.Tensor): Precomputed frequencies tensor of shape (seq_len, dim // 2, 2).
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Tensors after applying rotary embeddings.
+    """
+    xq_ = torch.view_as_complex(xq.float().reshape(*xq.shape[:-1], -1, 2))
+    xk_ = torch.view_as_complex(xk.float().reshape(*xk.shape[:-1], -1, 2))
+    freqs_cis = reshape_for_broadcasting(freqs_cis, xq_)
+    xq_out = torch.view_as_real(xq_ * freqs_cis).flatten(3)
+    xk_out = torch.view_as_real(xk_ * freqs_cis).flatten(3)
+
+    return xq_out.type_as(xq), xk_out.type_as(xk)
