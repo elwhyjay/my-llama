@@ -2,9 +2,13 @@
 
 ## llama 구현하기
 
-- rotary embedding 
-- group - query attention 
-- rms-normalization 
+- [] rotary embedding 
+- [] GQA
+- [x] rms-normalization 
+- [] SwiGLU
+- [] feedforward
+- [] attention
+- [] transformer block
 
 ## 개발 가이드
 
@@ -26,3 +30,4 @@ git config --local commit.template .gitmessage
 
 - page attention 
 - speculative decoding 
+- kv cache 
