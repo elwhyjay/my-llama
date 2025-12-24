@@ -2,9 +2,13 @@
 
 ## llama 구현하기
 
-- rotary embedding 
-- group - query attention 
-- rms-normalization 
+- [] rotary embedding 
+- [] GQA
+- [x] rms-normalization 
+- [] SwiGLU
+- [] feedforward
+- [] attention
+- [] transformer block
 
 ## TODO
 
@@ -12,3 +16,4 @@
 
 - page attention 
 - speculative decoding 
+- kv cache 
