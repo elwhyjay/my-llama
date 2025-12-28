@@ -21,6 +21,7 @@ class AttentionConfig:
     max_batch_size: int = 2
     max_sequence_length: int = 2048
 
+    norm_eps: float = 1e-6
 
 def fast_repeat_interleave(tensor: torch.Tensor, repeats: int) -> torch.Tensor:
     batch_sz, seq_len, n_kv_heads, head_dim = tensor.shape
