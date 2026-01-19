@@ -15,6 +15,14 @@
 - [x] tokenizer
 - [x] inference and generation
 
+## How to run
+
+```bash
+pip install -r requirements.txt
+python test_inference.py
+```
+
+
 ## Naive 구현의 한계
 
 
