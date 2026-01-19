@@ -44,7 +44,7 @@ class SwiGLU(nn.Module):
         return self.w3(self.activation(self.w1(x)) * self.w2(x))
 
 class FeedForward(nn.Module):
-    def __init__(self, dim: int, hidden_dim : int , scale_to_hidden_dim : int, ffn_dim_multiplier:Optional[float], dropout):
+    def __init__(self, dim: int, hidden_dim : int , scale_to_hidden_dim : int, ffn_dim_multiplier:Optional[float], dropout: float = 0.0):
         super().__init__()
         self.dim = dim
         self.hidden_dim = hidden_dim
