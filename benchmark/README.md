@@ -83,7 +83,7 @@ python benchmark/speed_benchmark.py \
 
 ## 출력 파일
 
-벤치마크 실행 후 `benchmark_results/` 디렉토리에 다음 파일들이 생성됩니다:
+벤치마크 실행 후 `benchmark_results/` 디렉토리에 다음 파일들이 생성됨:
 
 - `benchmark_results.json`: 벤치마크 수치 결과
 - `profiler_trace.json`: Chrome trace 파일 (--profile 옵션 사용 시)
@@ -125,7 +125,7 @@ Long prompt                    68           95           5.234        18.15
 
 ## 병목 지점 분석
 
-Profiler 결과에서 다음을 확인할 수 있습니다:
+Profiler 결과로 알수있는 요소
 
 - **Attention 연산**: Q, K, V projection, scaled dot-product attention
 - **FeedForward 연산**: SwiGLU, linear projections
@@ -133,12 +133,3 @@ Profiler 결과에서 다음을 확인할 수 있습니다:
 - **메모리 복사**: device-to-device, host-to-device transfers
 - **Kernel launches**: CUDA kernel overhead
 
-## 최적화 가이드
-
-Profiler 결과를 분석하여 다음을 최적화할 수 있습니다:
-
-1. **가장 많은 시간을 소비하는 연산 식별**
-2. **메모리 복사 최소화**
-3. **Fusion 기회 찾기** (여러 연산을 하나로 합치기)
-4. **배치 처리 최적화**
-5. **KV 캐시 효율성 개선**
