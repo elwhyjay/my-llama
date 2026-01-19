@@ -50,8 +50,12 @@ class LLamaAttention(nn.Module):
             self.num_key_value_heads,
             self.head_dim,
         ).cuda()
-    def forward(self, x, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor] = None):
+    def forward(self, x, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: Optional[bool] = True):
         batch_size, seq_len, _ = x.size()
+
+        # use_cache가 None이면 self.use_cache 사용
+        if use_cache is None:
+            use_cache = self.use_cache
 
         q = self.q_proj(x)
         k = self.k_proj(x)
@@ -61,19 +65,24 @@ class LLamaAttention(nn.Module):
         k = k.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
         v = v.view(batch_size, seq_len, self.num_key_value_heads, self.head_dim)
 
-        q,k = rotary_emb(q, k, freqs_cis=freqs_cis)
+        q, k = rotary_emb(q, k, freqs_cis=freqs_cis)
 
-        self.cache_k = self.cache_k.to(q)
-        self.cache_v = self.cache_v.to(q)
+        if use_cache:
+            # KV 캐시 사용
+            self.cache_k = self.cache_k.to(q)
+            self.cache_v = self.cache_v.to(q)
 
-        self.cache_k[:batch_size, start_pos : start_pos + seq_len, :, :] = k
-        self.cache_v[:batch_size, start_pos : start_pos + seq_len, :, :] = v
+            self.cache_k[:batch_size, start_pos : start_pos + seq_len, :, :] = k
+            self.cache_v[:batch_size, start_pos : start_pos + seq_len, :, :] = v
 
-        keys = self.cache_k[:batch_size, : start_pos + seq_len, :, :]
-        values = self.cache_v[:batch_size, : start_pos + seq_len, :, :]
+            keys = self.cache_k[:batch_size, : start_pos + seq_len, :, :]
+            values = self.cache_v[:batch_size, : start_pos + seq_len, :, :]
+        else:
+            # 캐시 없이 직접 사용 (training 또는 start_pos=0일 때)
+            keys = k
+            values = v
 
-        #k = keys.repeat_interleave(self.num_rep, dim=2)
-        #v = values.repeat_interleave(self.num_rep, dim=2)
+        # GQA: K, V 헤드를 Q 헤드 수만큼 반복
         keys = fast_repeat_interleave(keys, self.num_rep)
         values = fast_repeat_interleave(values, self.num_rep)
 
