@@ -64,26 +64,43 @@ def test_inference(
     print("Loading model...")
     print("="*80)
 
-    # 모델 로드
+    # 모델 로드 (메모리 절약을 위해 FP16 사용)
     llama = Llama.build(
         model_path=model_path,
-        max_seq_len=512,
-        max_batch_size=len(prompts),
+        max_seq_len=256,  # 메모리 절약을 위해 줄임
+        max_batch_size=1,  # 배치 크기 1로 제한
         device="cuda" if torch.cuda.is_available() else "cpu",
+        dtype=torch.float16,  # FP16 사용
     )
 
     print("\n" + "="*80)
     print("Running inference...")
     print("="*80)
 
-    # Inference 실행
-    results = llama.text_completion(
-        prompts=prompts,
-        temperature=temperature,
-        top_p=top_p,
-        max_gen_len=max_gen_len,
-        echo=False,
-    )
+    # # Inference 실행
+    # results = llama.text_completion(
+    #     prompts=prompts,
+    #     temperature=temperature,
+    #     top_p=top_p,
+    #     max_gen_len=max_gen_len,
+    #     echo=False,
+    # )
+    # Inference 실행 (한 번에 하나씩 처리)
+    results = []
+    for i, prompt in enumerate(prompts):
+        print(f"\nProcessing prompt {i+1}/{len(prompts)}...")
+        result = llama.text_completion(
+            prompts=[prompt],  # 한 번에 하나씩
+            temperature=temperature,
+            top_p=top_p,
+            max_gen_len=max_gen_len,
+            echo=False,
+        )
+        results.extend(result)
+
+        # 메모리 정리
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
     # 결과 출력
     print("\n" + "="*80)
@@ -102,7 +119,6 @@ def main():
     prompts = [
         "Once upon a time",
         "The capital of Korea is",
-        "In a world where artificial intelligence",
     ]
 
     # 모델 경로 (환경 변수 또는 기본값)
@@ -125,11 +141,11 @@ def main():
             print("2. Set LLAMA_MODEL_PATH environment variable to the model directory")
             sys.exit(1)
 
-    # Inference 테스트
+    # Inference 테스트 (메모리 절약을 위해 짧은 생성)
     test_inference(
         model_path=model_path,
         prompts=prompts,
-        max_gen_len=64,
+        max_gen_len=32,  # 짧게 생성
         temperature=0.7,
         top_p=0.9,
     )
