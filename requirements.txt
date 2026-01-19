@@ -1,2 +1,4 @@
 torch
 sentencepiece
+huggingface_hub
+numpy
