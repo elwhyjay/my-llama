@@ -22,12 +22,12 @@ class Tokenizer:
             f"Tokenizer initialized with vocab size: {self.number_words}, "
             f"BOS ID: {self.bos_id}, EOS ID: {self.eos_id}, PAD ID: {self.pad_id}"
         )
-        assert self.sp.vocab_size == self.sp.get_piece_size(), "Vocabulary size mismatch"
+        assert self.sp.vocab_size() == self.sp.get_piece_size(), "Vocabulary size mismatch"
 
     def encode(self, text: str, bos: bool = False, eos: bool = False) -> List[int]:
-        
+
         assert type(text) == str, "Input text must be a string"
-        encoding_text = self.sp.model.encode(text)
+        encoding_text = self.sp.encode(text)
         if bos:
             encoding_text = [self.bos_id] + encoding_text
         if eos:
@@ -38,4 +38,4 @@ class Tokenizer:
     def decode(self, token_ids: List[int]) -> str:
 
         assert type(token_ids) == list, "Input token_ids must be a list of integers"
-        return self.sp.model.decode(token_ids)
+        return self.sp.decode(token_ids)
