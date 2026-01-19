@@ -82,16 +82,18 @@ class Llama:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-        # 4. 모델 초기화
-        print(f"Initializing model with config: {config}")
+        # 4. 모델 초기화 (CPU에서 초기화하여 GPU 메모리 절약)
+        print(f"Initializing model on CPU with config: {config}")
         model = LLamaTransformer(config)
-
-        # 5. 가중치 로드
-        print(f"Loading weights from {model_path} with dtype {dtype}")
-        Llama._load_weights(model, model_path, device, dtype)
-
-        model = model.to(device).to(dtype)
         model.eval()
+
+        # 5. 가중치 로드 (CPU로 로드)
+        print(f"Loading weights from {model_path} with dtype {dtype}")
+        Llama._load_weights(model, model_path, device='cpu', dtype=dtype)
+
+        # 6. GPU로 이동 (한 번에 이동)
+        print(f"Moving model to {device}")
+        model = model.to(device).to(dtype)
 
         print(f"Model loaded successfully on {device} with dtype {dtype}")
         return Llama(model, tokenizer, config)
@@ -99,7 +101,7 @@ class Llama:
     @staticmethod
     def _load_weights(model: LLamaTransformer, model_path: str, device: str, dtype: torch.dtype = torch.float16):
         """
-        Huggingface 체크포인트에서 가중치 로드
+        Huggingface 체크포인트에서 가중치 로드 (CPU에서)
         """
         # pytorch_model.bin 또는 model.safetensors 찾기
         bin_files = []
@@ -123,19 +125,24 @@ class Llama:
         state_dict = {}
         for bin_file in bin_files:
             print(f"Loading {bin_file}")
-            # CPU에 먼저 로드하고 dtype 변환
+            # CPU에 로드
             weights = torch.load(bin_file, map_location='cpu', weights_only=True)
-            # dtype 변환
-            for key in weights:
-                weights[key] = weights[key].to(dtype)
+            # dtype 변환 (in-place로 메모리 절약)
+            for key in list(weights.keys()):
+                if weights[key].dtype != dtype:
+                    weights[key] = weights[key].to(dtype)
             state_dict.update(weights)
+            del weights  # 메모리 해제
 
         # Huggingface 키를 우리 모델 키로 매핑
+        print("Mapping Huggingface weights to model structure")
         mapped_state_dict = Llama._map_huggingface_weights(state_dict)
+        del state_dict  # 원본 state_dict 메모리 해제
 
-        # 모델에 로드
+        # 모델에 로드 (CPU에 있는 model에 로드)
         model.load_state_dict(mapped_state_dict, strict=False)
-        print("Weights loaded successfully")
+        del mapped_state_dict  # 메모리 해제
+        print("Weights loaded successfully on CPU")
 
     @staticmethod
     def _map_huggingface_weights(hf_state_dict: dict) -> dict:
