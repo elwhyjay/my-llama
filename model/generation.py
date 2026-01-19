@@ -49,6 +49,7 @@ class Llama:
         max_batch_size: int = 1,
         max_seq_len: int = 512,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        dtype: torch.dtype = torch.float16,
     ) -> "Llama":
         """
         Llama 모델 빌드
@@ -59,6 +60,7 @@ class Llama:
             max_batch_size: 최대 배치 크기
             max_seq_len: 최대 시퀀스 길이
             device: 디바이스 (cuda/cpu)
+            dtype: 모델 데이터 타입 (float16, bfloat16, float32)
 
         Returns:
             Llama 인스턴스
@@ -76,22 +78,26 @@ class Llama:
         print(f"Loading tokenizer from {tokenizer_path}")
         tokenizer = Tokenizer(tokenizer_path)
 
-        # 3. 모델 초기화
+        # 3. 메모리 정리
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+        # 4. 모델 초기화
         print(f"Initializing model with config: {config}")
         model = LLamaTransformer(config)
 
-        # 4. 가중치 로드
-        print(f"Loading weights from {model_path}")
-        Llama._load_weights(model, model_path, device)
+        # 5. 가중치 로드
+        print(f"Loading weights from {model_path} with dtype {dtype}")
+        Llama._load_weights(model, model_path, device, dtype)
 
-        model = model.to(device)
+        model = model.to(device).to(dtype)
         model.eval()
 
-        print(f"Model loaded successfully on {device}")
+        print(f"Model loaded successfully on {device} with dtype {dtype}")
         return Llama(model, tokenizer, config)
 
     @staticmethod
-    def _load_weights(model: LLamaTransformer, model_path: str, device: str):
+    def _load_weights(model: LLamaTransformer, model_path: str, device: str, dtype: torch.dtype = torch.float16):
         """
         Huggingface 체크포인트에서 가중치 로드
         """
@@ -117,7 +123,11 @@ class Llama:
         state_dict = {}
         for bin_file in bin_files:
             print(f"Loading {bin_file}")
-            weights = torch.load(bin_file, map_location=device)
+            # CPU에 먼저 로드하고 dtype 변환
+            weights = torch.load(bin_file, map_location='cpu', weights_only=True)
+            # dtype 변환
+            for key in weights:
+                weights[key] = weights[key].to(dtype)
             state_dict.update(weights)
 
         # Huggingface 키를 우리 모델 키로 매핑
@@ -218,11 +228,11 @@ class Llama:
         prompt_tokens_mask = tokens != pad_id
         input_text_mask = prompt_tokens_mask.clone()
 
+        # 첫 forward pass: 전체 프롬프트 처리하여 KV 캐시 채우기
+        logits = self.model(tokens[:, :max_prompt_len], start_pos=0, use_cache=True)
+
         # 토큰 생성 루프
         for cur_pos in range(max_prompt_len, total_len):
-            # Forward pass
-            logits = self.model(tokens[:, :cur_pos], start_pos=0)
-
             # 다음 토큰 예측
             if temperature > 0:
                 # Temperature scaling
@@ -242,6 +252,10 @@ class Llama:
             eos_reached |= (~input_text_mask[:, cur_pos]) & (next_token == self.tokenizer.eos_id)
             if all(eos_reached):
                 break
+
+            # 다음 토큰으로 forward pass (KV 캐시 활용)
+            if cur_pos < total_len - 1:
+                logits = self.model(tokens[:, cur_pos:cur_pos+1], start_pos=cur_pos, use_cache=True)
 
         # 결과 추출
         out_tokens = []
