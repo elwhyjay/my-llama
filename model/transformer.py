@@ -31,15 +31,15 @@ class LLamaTransformerBlock(nn.Module):
         self.ffn_norm = LLamaRMSNorm(args.hidden_dim, eps = args.norm_eps)
 
 
-    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor] = None):
-        
+    def forward(self, x: torch.Tensor, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: Optional[bool] = None):
+
         mid_output = x + self.attention(
-            self.norm(x), start_pos, freqs_cis, mask
+            self.norm(x), start_pos, freqs_cis, mask, use_cache=use_cache
         )
         out = mid_output + self.ffn(
             self.ffn_norm(mid_output)
         )
-        
+
         return out
     
 
@@ -75,17 +75,18 @@ class LLamaTransformer(nn.Module):
             self.args.hidden_dim //  self.args.num_attention_heads, self.args.max_sequence_length * 2
         )
     @torch.inference_mode()
-    def forward(self, tokens:torch.Tensor, start_pos:int):
+    def forward(self, tokens:torch.Tensor, start_pos:int, use_cache: Optional[bool] = None):
         """
         tokens: (batch_size, seq_len) input token idices
         start_pos: position to start for attention caching
+        use_cache: whether to use KV cache (None uses config default)
         """
         batch_sz,seq_len = tokens.shape
         x = self.token_embedding(tokens)  # (batch_size, seq_len, hidden_dim)
         self.freqs_cis = self.freqs_cis.to(x.device)
         freqs_cis = self.freqs_cis[start_pos:start_pos + seq_len]
         mask = None  # For simplicity, no mask is applied here.
-        
+
         if seq_len > 1:
             mask = torch.full(
                 (seq_len, seq_len),
@@ -103,7 +104,8 @@ class LLamaTransformer(nn.Module):
                 x,
                 start_pos,
                 freqs_cis,
-                mask
+                mask,
+                use_cache=use_cache
             )
         x = self.norm(x)
         output = self.output(x).float()
