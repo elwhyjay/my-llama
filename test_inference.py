@@ -117,8 +117,8 @@ def test_inference(
 def main():
     # 테스트 프롬프트
     prompts = [
-        "Once upon a time",
-        "The capital of Korea is",
+        "llama2 는",
+        "서울의 수도는 ",
     ]
 
     # 모델 경로 (환경 변수 또는 기본값)
