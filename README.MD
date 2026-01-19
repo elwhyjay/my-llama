@@ -5,14 +5,15 @@
 
 ## llama 구현하기
 
-- [ ] rotary embedding 
-- [ ] GQA
+- [x] rotary embedding 
+- [x] GQA
 - [x] rms-normalization 
-- [ ] SwiGLU
-- [ ] feedforward
-- [ ] attention
-- [ ] transformer block
-
+- [x] SwiGLU
+- [x] feedforward
+- [x] attention
+- [x] transformer block
+- [x] tokenizer
+- [ ] inference and generation
 ## TODO
 
 ### inference 관련 구현
