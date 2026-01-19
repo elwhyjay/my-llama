@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
-from model.attention import LLamaAttention, AttentionConfig
+from model.attention import LLamaAttention
 from model.layer_norm import LLamaRMSNorm
 from model.embeddings import LLamaEmbedding
-from model.rope import precompute_freqs_cis, reshape_for_broadcasting, rotary_emb
+from model.rope import precompute_freqs_cis
 from model.feedforward import FeedForward
+from config.model_config import LlamaConfig
 from typing import Optional, Tuple
 
 class LLamaTransformerBlock(nn.Module):
-    def __init__(self,layer_id:int, args: AttentionConfig):
+    def __init__(self,layer_id:int, args: LlamaConfig):
         """
         layer_id: layer identifier
         args: config
@@ -24,6 +25,7 @@ class LLamaTransformerBlock(nn.Module):
             hidden_dim= 4*args.hidden_dim,
             scale_to_hidden_dim = args.scale_to_hidden_dim,
             ffn_dim_multiplier = args.ffn_dim_multiplier,
+            dropout = 0.0
         )
         self.norm = LLamaRMSNorm(args.hidden_dim, eps = args.norm_eps)
         self.ffn_norm = LLamaRMSNorm(args.hidden_dim, eps = args.norm_eps)
@@ -42,9 +44,9 @@ class LLamaTransformerBlock(nn.Module):
     
 
 class LLamaTransformer(nn.Module):
-    def __init__(self,args: AttentionConfig):
+    def __init__(self,args: LlamaConfig):
         super().__init__()
-        self.paramas = args
+        self.args = args
         self.vocab_size = args.vocab_size
         self.n_layers = args.num_hidden_layers
 
@@ -70,7 +72,7 @@ class LLamaTransformer(nn.Module):
             bias = False
         )
         self.freqs_cis = precompute_freqs_cis(
-            self.args.hidden_dim //  self.args.num_attention_heads, self.args.max_seq_len * 2
+            self.args.hidden_dim //  self.args.num_attention_heads, self.args.max_sequence_length * 2
         )
     @torch.inference_mode()
     def forward(self, tokens:torch.Tensor, start_pos:int):
