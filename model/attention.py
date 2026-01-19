@@ -38,18 +38,11 @@ class LLamaAttention(nn.Module):
             self.head_dim * self.num_attention_heads == self.hidden_dim
         ), "hidden_dim must be divisible by num_attention_heads"
 
-        self.cache_k = torch.zeros(
-            args.max_batch_size,
-            args.max_sequence_length,
-            self.num_key_value_heads,
-            self.head_dim,
-        ).cuda()
-        self.cache_v = torch.zeros(
-            args.max_batch_size,
-            args.max_sequence_length,
-            self.num_key_value_heads,
-            self.head_dim,
-        ).cuda()
+        # KV cache는 lazy initialization으로 변경 (메모리 절약)
+        self.cache_k = None
+        self.cache_v = None
+        self.max_batch_size = args.max_batch_size
+        self.max_sequence_length = args.max_sequence_length
     def forward(self, x, start_pos: int, freqs_cis: torch.Tensor, mask: Optional[torch.Tensor] = None, use_cache: Optional[bool] = True):
         batch_size, seq_len, _ = x.size()
 
@@ -68,7 +61,26 @@ class LLamaAttention(nn.Module):
         q, k = rotary_emb(q, k, freqs_cis=freqs_cis)
 
         if use_cache:
-            # KV 캐시 사용
+            # 첫 사용 시 캐시 초기화 (올바른 device와 dtype으로)
+            if self.cache_k is None:
+                self.cache_k = torch.zeros(
+                    self.max_batch_size,
+                    self.max_sequence_length,
+                    self.num_key_value_heads,
+                    self.head_dim,
+                    device=q.device,
+                    dtype=q.dtype
+                )
+                self.cache_v = torch.zeros(
+                    self.max_batch_size,
+                    self.max_sequence_length,
+                    self.num_key_value_heads,
+                    self.head_dim,
+                    device=q.device,
+                    dtype=q.dtype
+                )
+
+            # KV 캐시 사용 (device/dtype 일치 확인)
             self.cache_k = self.cache_k.to(q)
             self.cache_v = self.cache_v.to(q)
 
