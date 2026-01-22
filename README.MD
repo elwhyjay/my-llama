@@ -28,20 +28,7 @@ python test_inference.py
 
 ### 1. 메모리 관리의 비효율성
 
-#### 초기 구현 문제 (현재 부분 해결)
-- **중복 메모리 할당**: 모델 초기화 시 GPU에 바로 할당 → weights 로드 → 다시 device 이동
-  - 7B FP16 모델: 14GB 필요하지만 일시적으로 42GB까지 사용
-  - **해결**: CPU 초기화 → weights 로드 → GPU 이동으로 변경하여 ~15GB로 감소
-
-#### 여전히 남아있는 문제
-- **KV Cache 사전 할당**: `max_sequence_length` 전체에 대해 메모리 할당
-  - 실제 사용: 평균 64~256 토큰
-  - 할당된 크기: 4096 토큰 (16배 낭비)
-  - Llama-2-7B의 경우: ~2GB KV cache (대부분 미사용)
-
-- **동적 메모리 관리 부재**:
-  - 시퀀스 길이에 따른 동적 할당 없음
-  - Page Attention 같은 효율적 메모리 관리 미구현
+  - Page Attention 같은 효율적 메모리 관리 필요
 
 ### 2. Attention 연산의 비효율성
 
@@ -49,7 +36,7 @@ python test_inference.py
 - Vanilla Self-Attention with GQA
 - 기본적인 KV Cache
 
-#### 없는 것들
+#### 구현할 것
 - **Flash Attention**: O(N²) 메모리 사용 → O(N) 불가능
   - 현재: QK^T를 모두 메모리에 저장
   - 최적화 시: tiling과 recomputation으로 메모리 절약
@@ -130,50 +117,14 @@ model = model.to("cuda")
 - Activation checkpointing: 미구현
 - Mixed precision training: 추론만 FP16 지원
 
-### 5. Production 기능 부재
-
-#### Serving Infrastructure
-- No request batching
-- No request queue management
-- No timeout handling
-- No graceful degradation
-
-#### Monitoring & Debugging
-- No performance metrics
-- No memory profiling
-- No latency tracking
-- No error recovery
-
-#### API & Integration
-- 단순한 Python 함수 인터페이스
-- REST API 없음
-- gRPC 없음
-- Streaming response 미지원
-
-## Naive vs Production 성능 비교
-
-| Metric | 현재 구현 | vLLM/TGI | 차이 |
-|--------|----------|----------|------|
-| Latency (7B) | ~80ms/token | ~20ms/token | 4배 느림 |
-| Throughput | ~12 tok/s | ~100 tok/s | 8배 낮음 |
-| Memory (7B FP16) | ~15GB | ~8GB | 2배 많음 |
-| Max Batch Size | 1 | 32+ | 32배 차이 |
-| GPU Utilization | ~30% | ~80% | 2.5배 차이 |
-
 ## TODO
 
 ### inference 관련 구현
 
 - [ ] Page Attention (vLLM-style)
 - [ ] Speculative Decoding
-- [ ] Flash Attention 2
+- [ ] Flash Attention 2,3
 - [ ] Continuous Batching
 - [ ] INT8 Quantization
 - [ ] Kernel Fusion (Triton)
-
-### 참고: Production-ready 라이브러리
-실제 서비스에는 다음 라이브러리 사용 권장:
-- **vLLM**: PagedAttention, continuous batching
-- **TGI** (Text Generation Inference): Hugging Face의 production 서버
-- **TensorRT-LLM**: NVIDIA의 최적화 엔진
-- **llama.cpp**: C++ 구현, CPU/quantization 최적화 
+- [ ] 최적화이후 벤치마크
